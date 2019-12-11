@@ -12,7 +12,7 @@ import {
     ListItemSecondaryAction,
     Container,
 } from '@material-ui/core'
-import { Link, useHistory } from 'react-router-dom'
+import { Link, useHistory, useRouteMatch, Redirect } from 'react-router-dom'
 import { useMyPersonas } from '../../components/DataSource/useActivatedUI'
 import Services from '../service'
 
@@ -80,6 +80,7 @@ export default function DashboardHomePage() {
 
     const classes = useStyles()
     const personas = useMyPersonas()
+    const match = useRouteMatch()!
 
     const exportData = () => {
         // FIXME:
@@ -231,6 +232,7 @@ export default function DashboardHomePage() {
                 <FooterLine />
             </section>
             {dialogs}
+            {!match?.url.endsWith('/') && match?.isExact && <Redirect to={match?.url + '/'} />}
         </Container>
     )
 }
