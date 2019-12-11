@@ -116,7 +116,7 @@ export default function PersonaCard({ persona }: Props) {
 
     const dismissDialog = () => {
         setBackupPersona(false)
-        setBackupPersona(false)
+        setDeletePersona(false)
     }
 
     return (
@@ -135,8 +135,9 @@ export default function PersonaCard({ persona }: Props) {
                                     keepMounted
                                     open={Boolean(anchorEl)}
                                     onClick={handleClose}
+                                    PaperProps={{ style: { minWidth: 100 } }}
                                     onClose={handleClose}>
-                                    <MenuItem onClick={() => setRename(true)}>Rename</MenuItem>
+                                    <MenuItem onClick={() => setRename(true)}>{geti18nString('rename')}</MenuItem>
                                     {
                                         // <MenuItem onClick={copyPublicKey}>Copy Public Key</MenuItem>
                                     }
