@@ -6,7 +6,7 @@ import { geti18nString } from '../../utils/i18n'
 // eslint-disable-next-line
 import { PersonRecordPublicPrivate, PersonRecord } from '../../database/migrate/_deprecated_people_db'
 import { BackupJSONFileLatest, UpgradeBackupJSONFile } from '../../utils/type-transform/BackupFile'
-import { ProfileIdentifier, ECKeyIdentifier } from '../../database/type'
+import { ProfileIdentifier, ECKeyIdentifier, PersonaIdentifier } from '../../database/type'
 import { MessageCenter } from '../../utils/messages'
 import getCurrentNetworkWorker from '../../social-network/utils/getCurrentNetworkWorker'
 import { SocialNetworkUI } from '../../social-network/ui'
@@ -17,7 +17,7 @@ import {
     MnemonicGenerationInformation,
 } from '../../utils/mnemonic-code'
 import { derive_AES_GCM_256_Key_From_PBKDF2, import_PBKDF2_Key, import_ECDH_256k1_Key } from '../../utils/crypto.subtle'
-import { createProfileWithPersona } from '../../database'
+import { createProfileWithPersona, createPersonaByMnemonic, createPersonaByJsonWebKey } from '../../database'
 import { migrateHelper_operateDB } from '../../database/migrate/people.to.persona'
 import { IdentifierMap } from '../../database/IdentifierMap'
 import {
@@ -25,6 +25,8 @@ import {
     PersonaDBAccess,
     queryProfileDB,
     PersonaRecord,
+    LinkedProfileDetails,
+    attachProfileDB,
 } from '../../database/Persona/Persona.db'
 import { createDefaultFriendsGroup } from '../../database'
 import {
@@ -33,6 +35,7 @@ import {
     getKeyParameter,
 } from '../../utils/type-transform/CryptoKey-JsonWebKey'
 import { deriveLocalKeyFromECDHKey } from '../../utils/mnemonic-code/localKeyGenerate'
+import { attachProfile } from './IdentityService'
 
 OnlyRunInContext('background', 'WelcomeService')
 
@@ -92,19 +95,40 @@ export async function createNewIdentityByMnemonicWord(whoAmI: ProfileIdentifier,
 }
 
 /**
- *
  * Recover new identity by a password and mnemonic words
  *
- * @param whoAmI Who Am I
  * @param password password used to generate mnemonic word, can be empty string
  * @param word mnemonic words
+ * @param info additional information
  */
 export async function restoreNewIdentityWithMnemonicWord(
-    whoAmI: ProfileIdentifier,
     word: string,
     password: string,
-): Promise<void> {
-    await generateNewIdentity(whoAmI, await recover_ECDH_256k1_KeyPair_ByMnemonicWord(word, password))
+    info: {
+        whoAmI?: ProfileIdentifier
+        nickname?: string
+        localKey?: JsonWebKey
+        details?: LinkedProfileDetails
+    },
+): Promise<PersonaIdentifier> {
+    const key = await recover_ECDH_256k1_KeyPair_ByMnemonicWord(word, password)
+    const pubJwk = await CryptoKeyToJsonWebKey(key.key.publicKey)
+    const privJwk = await CryptoKeyToJsonWebKey(key.key.privateKey)
+    const localKeyJwk = await deriveLocalKeyFromECDHKey(key.key.publicKey, key.mnemonicRecord.word).then(
+        CryptoKeyToJsonWebKey,
+    )
+
+    const ecKeyID = await createPersonaByJsonWebKey({
+        publicKey: pubJwk,
+        privateKey: privJwk,
+        localKey: info.localKey || localKeyJwk,
+        mnemonic: key.mnemonicRecord,
+        nickname: info.nickname,
+    })
+    if (info.whoAmI) {
+        await attachProfileDB(info.whoAmI, ecKeyID, info.details || { connectionConfirmState: 'pending' })
+    }
+    return ecKeyID
 }
 /**
  * There are 2 types of usingKey.
