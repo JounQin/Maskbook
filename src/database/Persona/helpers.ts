@@ -18,6 +18,7 @@ import {
     attachProfileDB,
     LinkedProfileDetails,
     updatePersonaDB,
+    PersonaDB,
 } from './Persona.db'
 import { IdentifierMap } from '../IdentifierMap'
 import { getAvatarDataURL } from '../helpers/avatar'
@@ -29,6 +30,7 @@ import {
 import { MessageCenter, UpdateEvent } from '../../utils/messages'
 import { generate_ECDH_256k1_KeyPair_ByMnemonicWord } from '../../utils/mnemonic-code'
 import { deriveLocalKeyFromECDHKey } from '../../utils/mnemonic-code/localKeyGenerate'
+import { IDBPTransaction } from 'idb'
 
 export async function profileRecordToProfile(record: ProfileRecord): Promise<Profile> {
     const rec = { ...record }
@@ -118,8 +120,11 @@ export async function renamePersona(identifier: PersonaIdentifier, nickname: str
     return updatePersonaDB({ identifier, nickname })
 }
 
-export async function updateOrCreateProfile(rec: Pick<Profile, 'identifier'> & Partial<ProfileRecord>) {
-    const t = (await PersonaDBAccess()).transaction('profiles', 'readwrite')
+export async function updateOrCreateProfile(
+    rec: Pick<Profile, 'identifier'> & Partial<ProfileRecord>,
+    t?: IDBPTransaction<PersonaDB, ['profiles']>,
+) {
+    t = t || (await PersonaDBAccess()).transaction('profiles', 'readwrite')
     const r = await queryProfileDB(rec.identifier, t)
     const e: ProfileRecord = {
         createdAt: new Date(),
@@ -166,7 +171,7 @@ export async function createPersonaByMnemonic(
     const key = await generate_ECDH_256k1_KeyPair_ByMnemonicWord(password)
     const jwkPub = await CryptoKeyToJsonWebKey(key.key.publicKey)
     const jwkPriv = await CryptoKeyToJsonWebKey(key.key.privateKey)
-    const localKey = await deriveLocalKeyFromECDHKey(key.key.publicKey, key.mnemonicRecord.word)
+    const localKey = await deriveLocalKeyFromECDHKey(key.key.publicKey, key.mnemonicRecord.words)
     const jwkLocalKey = await CryptoKeyToJsonWebKey(localKey)
 
     return createPersonaByJsonWebKey({

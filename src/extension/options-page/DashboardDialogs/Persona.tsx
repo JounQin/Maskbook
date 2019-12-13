@@ -123,7 +123,7 @@ interface PersonaBackupDialogProps {
 
 export function PersonaBackupDialog(props: PersonaBackupDialogProps) {
     const { onClose, persona } = props
-    const mnemonicWordValue = persona.mnemonic?.word ?? geti18nString('not_available')
+    const mnemonicWordValue = persona.mnemonic?.words ?? geti18nString('not_available')
     const base64Value = geti18nString('not_available')
 
     const state = useState(0)
